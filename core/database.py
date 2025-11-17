@@ -200,3 +200,168 @@ class DatabaseManager:
             logger.info("Database initialized successfully")
         except Exception as e:
             logger.error(f"Database initialization failed: {e}")
+    
+    # ====================
+    # Statistics Methods
+    # ====================
+    
+    def get_table_counts(self) -> Dict[str, int]:
+        """
+        Get record counts for all main tables
+        
+        Returns:
+            Dictionary with table names and their counts
+        """
+        counts = {}
+        tables = ['text_segments', 'sentences', 'tokens', 'morphemes', 'word_analysis']
+        
+        for table in tables:
+            result = self.fetch_one(f"SELECT COUNT(*) as count FROM {table}")
+            counts[table] = result['count'] if result else 0
+        
+        return counts
+    
+    def get_recent_text_segments(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Get recent text segments
+        
+        Args:
+            limit: Number of records to retrieve
+        
+        Returns:
+            List of text segment records
+        """
+        query = """
+            SELECT id, LEFT(original_text, 50) as text_preview, 
+                   sentence_count, word_count, processed_at
+            FROM text_segments 
+            ORDER BY processed_at DESC 
+            LIMIT %s
+        """
+        return self.fetch_all(query, (limit,))
+    
+    def get_recent_sentences(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get recent sentences
+        
+        Args:
+            limit: Number of records to retrieve
+        
+        Returns:
+            List of sentence records
+        """
+        query = """
+            SELECT id, LEFT(sentence_text, 50) as text, 
+                   sentence_position, word_count
+            FROM sentences 
+            ORDER BY id DESC 
+            LIMIT %s
+        """
+        return self.fetch_all(query, (limit,))
+    
+    def get_tokens_by_sentence(self, sentence_id: int = None, limit: int = 15) -> List[Dict[str, Any]]:
+        """
+        Get tokens from a specific sentence or the most recent one
+        
+        Args:
+            sentence_id: Specific sentence ID (None for most recent)
+            limit: Number of tokens to retrieve
+        
+        Returns:
+            List of token records
+        """
+        if sentence_id is None:
+            # Get most recent sentence
+            query = """
+                SELECT token, token_position, is_punctuation, is_stopword
+                FROM tokens
+                WHERE sentence_id = (SELECT MAX(id) FROM sentences)
+                ORDER BY token_position
+                LIMIT %s
+            """
+        else:
+            query = """
+                SELECT token, token_position, is_punctuation, is_stopword
+                FROM tokens
+                WHERE sentence_id = %s
+                ORDER BY token_position
+                LIMIT %s
+            """
+            return self.fetch_all(query, (sentence_id, limit))
+        
+        return self.fetch_all(query, (limit,))
+    
+    def get_recent_word_analyses(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get recent word analyses
+        
+        Args:
+            limit: Number of records to retrieve
+        
+        Returns:
+            List of word analysis records
+        """
+        query = """
+            SELECT word, root, prefix, suffix, pos_tag, lemma
+            FROM word_analysis
+            ORDER BY id DESC
+            LIMIT %s
+        """
+        return self.fetch_all(query, (limit,))
+    
+    # ====================
+    # Clear/Delete Methods
+    # ====================
+    
+    def clear_analysis_data(self) -> Dict[str, Any]:
+        """
+        Clear all analysis data (keeps morpheme dictionary)
+        
+        Returns:
+            Dictionary with operation results
+        """
+        result = {
+            'success': False,
+            'deleted_counts': {},
+            'error': None
+        }
+        
+        try:
+            with self.get_cursor() as cursor:
+                # Get counts before deletion
+                tables = ['text_segments', 'sentences', 'tokens', 'word_analysis']
+                for table in tables:
+                    cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
+                    result['deleted_counts'][table] = cursor.fetchone()['count']
+                
+                # Delete in correct order (respecting foreign key constraints)
+                cursor.execute("DELETE FROM tokens")
+                cursor.execute("DELETE FROM word_analysis")
+                cursor.execute("DELETE FROM sentences")
+                cursor.execute("DELETE FROM text_segments")
+                
+                # Reset auto-increment counters
+                cursor.execute("ALTER TABLE tokens AUTO_INCREMENT = 1")
+                cursor.execute("ALTER TABLE word_analysis AUTO_INCREMENT = 1")
+                cursor.execute("ALTER TABLE sentences AUTO_INCREMENT = 1")
+                cursor.execute("ALTER TABLE text_segments AUTO_INCREMENT = 1")
+                
+                result['success'] = True
+                logger.info("Analysis data cleared successfully")
+                
+        except Error as e:
+            result['error'] = str(e)
+            logger.error(f"Error clearing analysis data: {e}")
+            self._connection.rollback()
+        
+        return result
+    
+    def get_morpheme_count(self) -> int:
+        """
+        Get count of morphemes in dictionary
+        
+        Returns:
+            Number of morphemes
+        """
+        result = self.fetch_one("SELECT COUNT(*) as count FROM morphemes")
+        return result['count'] if result else 0
