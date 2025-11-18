@@ -4,7 +4,7 @@ Main orchestrator for NLU pipeline
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from core.database import DatabaseManager
 from modules.segmentation import Segmenter
 from modules.morphology import MorphologyAnalyzer
@@ -29,7 +29,7 @@ class NLUSystem:
     Coordinates all NLU modules for complete text understanding
     """
     
-    def __init__(self, db_config: Dict[str, any] = None):
+    def __init__(self, db_config: Optional[Dict[str, Any]] = None):
         """
         Initialize NLU System
         
@@ -63,7 +63,7 @@ class NLUSystem:
         logger.info("Database initialized")
     
     def process_text(self, text: str, analyze_morphology: bool = True, 
-                    store_results: bool = True) -> Dict[str, any]:
+                    store_results: bool = True) -> Dict[str, Any]:
         """
         Complete text processing pipeline
         
@@ -106,7 +106,7 @@ class NLUSystem:
         logger.info("Text processing completed")
         return results
     
-    def analyze_sentence(self, sentence: str) -> Dict[str, any]:
+    def analyze_sentence(self, sentence: str) -> Dict[str, Any]:
         """
         Analyze a single sentence
         
@@ -132,7 +132,7 @@ class NLUSystem:
             'morphology': morphology
         }
     
-    def analyze_word(self, word: str) -> Dict[str, any]:
+    def analyze_word(self, word: str) -> Dict[str, Any]:
         """
         Detailed analysis of a single word
         
@@ -162,7 +162,7 @@ class NLUSystem:
         
         return ' '.join(lemmas)
     
-    def get_text_statistics(self, text: str) -> Dict[str, any]:
+    def get_text_statistics(self, text: str) -> Dict[str, Any]:
         """
         Get comprehensive statistics about text
         
@@ -175,8 +175,8 @@ class NLUSystem:
         results = self.process_text(text, analyze_morphology=True, store_results=False)
         return results['statistics']
     
-    def _compile_statistics(self, segmentation: Dict[str, any], 
-                           morphology: List[Dict[str, any]]) -> Dict[str, any]:
+    def _compile_statistics(self, segmentation: Dict[str, Any], 
+                           morphology: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Compile comprehensive statistics
         
@@ -231,7 +231,7 @@ class NLUSystem:
             self.morphology._load_morphemes()
         return morpheme_id
     
-    def search_word_analyses(self, word: str) -> List[Dict[str, any]]:
+    def search_word_analyses(self, word: str) -> List[Dict[str, Any]]:
         """
         Search for previous analyses of a word
         
@@ -244,7 +244,7 @@ class NLUSystem:
         query = "SELECT * FROM word_analysis WHERE word = %s"
         return self.db_manager.fetch_all(query, (word,))
     
-    def get_recent_texts(self, limit: int = 10) -> List[Dict[str, any]]:
+    def get_recent_texts(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Get recently processed texts
         
@@ -277,7 +277,7 @@ class NLUSystem:
 
 
 # Convenience function for quick text analysis
-def analyze_text(text: str, db_config: Dict[str, any] = None) -> Dict[str, any]:
+def analyze_text(text: str, db_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Quick text analysis function
     
