@@ -4,7 +4,7 @@ Handles morphological analysis: roots, affixes, lemmatization, and word formatio
 """
 
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -158,6 +158,10 @@ class MorphologyAnalyzer:
     
     def _load_morphemes(self):
         """Load morphemes from database"""
+        if not self.db_manager:
+            self._load_default_morphemes()
+            return
+            
         try:
             # Load prefixes
             prefixes_query = "SELECT morpheme, meaning FROM morphemes WHERE type = 'prefix'"
@@ -179,7 +183,7 @@ class MorphologyAnalyzer:
             logger.error(f"Failed to load morphemes from database: {e}")
             self._load_default_morphemes()
     
-    def analyze_word(self, word: str) -> Dict[str, any]:
+    def analyze_word(self, word: str) -> Dict[str, Any]:
         """
         Perform complete morphological analysis of a word
         
@@ -387,7 +391,7 @@ class MorphologyAnalyzer:
         
         return morphemes
     
-    def analyze_batch(self, words: List[str], store_in_db: bool = True) -> List[Dict[str, any]]:
+    def analyze_batch(self, words: List[str], store_in_db: bool = True) -> List[Dict[str, Any]]:
         """
         Analyze multiple words
         
@@ -410,8 +414,11 @@ class MorphologyAnalyzer:
         
         return results
     
-    def _store_analyses(self, analyses: List[Dict[str, any]]):
+    def _store_analyses(self, analyses: List[Dict[str, Any]]):
         """Store morphological analyses in database"""
+        if not self.db_manager:
+            return
+            
         records = []
         
         for analysis in analyses:
