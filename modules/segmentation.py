@@ -4,7 +4,7 @@ Handles text segmentation at different levels: sentences, words, and tokens
 """
 
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ class Segmenter:
         words = re.findall(r'\b\w+\b', text.lower())
         return words
     
-    def tokenize(self, text: str, preserve_punctuation: bool = True) -> List[Dict[str, any]]:
+    def tokenize(self, text: str, preserve_punctuation: bool = True) -> List[Dict[str, Any]]:
         """
         Tokenize text into detailed tokens
         
@@ -165,7 +165,7 @@ class Segmenter:
         
         return tokens
     
-    def process_text(self, text: str, store_in_db: bool = True) -> Dict[str, any]:
+    def process_text(self, text: str, store_in_db: bool = True) -> Dict[str, Any]:
         """
         Complete text processing: segment and store
         
@@ -208,7 +208,7 @@ class Segmenter:
         
         return results
     
-    def _store_segmentation(self, results: Dict[str, any]) -> int:
+    def _store_segmentation(self, results: Dict[str, Any]) -> Optional[int]:
         """
         Store segmentation results in database
         
@@ -216,8 +216,12 @@ class Segmenter:
             results: Processing results dictionary
         
         Returns:
-            Text segment ID
+            Text segment ID or None if storage fails
         """
+        if not self.db_manager:
+            logger.warning("No database manager available, skipping storage")
+            return None
+        
         # Insert main text segment
         text_data = {
             'original_text': results['original_text'],
@@ -261,7 +265,7 @@ class Segmenter:
         logger.info(f"Stored segmentation results with ID: {text_id}")
         return text_id
     
-    def get_statistics(self, results: Dict[str, any]) -> Dict[str, any]:
+    def get_statistics(self, results: Dict[str, Any]) -> Dict[str, Any]:
         """
         Calculate statistics from segmentation results
         
