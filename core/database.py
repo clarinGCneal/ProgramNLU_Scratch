@@ -43,6 +43,7 @@ class DatabaseManager:
             if self._connection.is_connected():
                 logger.info("Successfully connected to MySQL database")
                 return True
+            return False
         except Error as e:
             logger.error(f"Error connecting to MySQL: {e}")
             return False
@@ -61,6 +62,9 @@ class DatabaseManager:
         Args:
             dictionary: Return results as dictionaries (default True)
         """
+        if not self._connection or not self._connection.is_connected():
+            raise Error("Database connection not established. Call connect() first.")
+        
         cursor = self._connection.cursor(dictionary=dictionary)
         try:
             yield cursor
@@ -72,7 +76,7 @@ class DatabaseManager:
         finally:
             cursor.close()
     
-    def execute_query(self, query: str, params: tuple = None) -> bool:
+    def execute_query(self, query: str, params: Optional[tuple] = None) -> bool:
         """
         Execute a query without returning results
         
@@ -91,7 +95,7 @@ class DatabaseManager:
             logger.error(f"Query execution failed: {e}")
             return False
     
-    def fetch_one(self, query: str, params: tuple = None) -> Optional[Dict[str, Any]]:
+    def fetch_one(self, query: str, params: Optional[tuple] = None) -> Optional[Dict[str, Any]]:
         """
         Fetch single result
         
@@ -103,14 +107,15 @@ class DatabaseManager:
             Single result as dictionary or None
         """
         try:
-            with self.get_cursor() as cursor:
+            with self.get_cursor(dictionary=True) as cursor:
                 cursor.execute(query, params or ())
-                return cursor.fetchone()
+                result = cursor.fetchone()
+                return result  # type: ignore[return-value]
         except Error as e:
             logger.error(f"Fetch one failed: {e}")
             return None
     
-    def fetch_all(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
+    def fetch_all(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """
         Fetch all results
         
@@ -124,7 +129,7 @@ class DatabaseManager:
         try:
             with self.get_cursor() as cursor:
                 cursor.execute(query, params or ())
-                return cursor.fetchall()
+                return cursor.fetchall()  # type: ignore[return-value]
         except Error as e:
             logger.error(f"Fetch all failed: {e}")
             return []
@@ -259,7 +264,7 @@ class DatabaseManager:
         """
         return self.fetch_all(query, (limit,))
     
-    def get_tokens_by_sentence(self, sentence_id: int = None, limit: int = 15) -> List[Dict[str, Any]]:
+    def get_tokens_by_sentence(self, sentence_id: Optional[int] = None, limit: int = 15) -> List[Dict[str, Any]]:
         """
         Get tokens from a specific sentence or the most recent one
         
@@ -327,12 +332,13 @@ class DatabaseManager:
         }
         
         try:
-            with self.get_cursor() as cursor:
+            with self.get_cursor(dictionary=True) as cursor:
                 # Get counts before deletion
                 tables = ['text_segments', 'sentences', 'tokens', 'word_analysis']
                 for table in tables:
                     cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
-                    result['deleted_counts'][table] = cursor.fetchone()['count']
+                    row = cursor.fetchone()
+                    result['deleted_counts'][table] = row['count'] if row else 0  # type: ignore[index]
                 
                 # Delete in correct order (respecting foreign key constraints)
                 cursor.execute("DELETE FROM tokens")
@@ -352,7 +358,8 @@ class DatabaseManager:
         except Error as e:
             result['error'] = str(e)
             logger.error(f"Error clearing analysis data: {e}")
-            self._connection.rollback()
+            if self._connection:
+                self._connection.rollback()
         
         return result
     
